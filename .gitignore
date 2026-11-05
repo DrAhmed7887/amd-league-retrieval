@@ -1,0 +1,9 @@
+# AMD starter kit: sample corpus and harness files, kept out of git
+kit/
+# local index and outputs
+.index/
+output/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store

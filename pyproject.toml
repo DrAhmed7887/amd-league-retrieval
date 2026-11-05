@@ -1,0 +1,9 @@
+[project]
+name = "amd-league-retrieval"
+version = "0.1.0"
+description = "Answer-with-source retrieval engine for the AMD AI League (Match 3 RAG, Match 4 web retrieval)"
+requires-python = ">=3.9"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

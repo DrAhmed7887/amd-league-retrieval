@@ -12,10 +12,20 @@ An answer-with-source engine for the AMD AI League: it reads a folder of mixed d
 | Corpus walk that survives unreadable, encrypted, unknown-type files and empty folders | Done, tested |
 | Parsers: PDF, DOCX (with tables), XLSX (all sheets), CSV, text, logs, code | Done, tested |
 | Persisted index + BM25 search | Done, tested |
+| Answer step: drops withdrawn revisions, follows ticket/error IDs to a second file, accepts a value only if it is written in a cited file, prunes citations to the chain, turns prose and crashes into refusals | Done, tested |
+| `app.py` to the AMD contract (always writes both graded keys) | Done, tested |
 | Images (read by a vision model on the GPU) | Not started |
-| Answer step: value only, superseded documents, multi-file chains, refusals | Not started |
-| Resident model process (the harness starts a new process per question) | Not started |
+| The real reader: an open model kept resident on the GPU behind a unix socket | Not started |
 | Dockerfile on the mandated ROCm base, `--no-deps` installs, self-check | Not started |
+
+## Sample score
+
+`scripts/score_sample.py` scores the kit's 10 questions exactly as the grader does (6 Nov 2026):
+
+| Reader | Score | Meaning |
+|---|---|---|
+| `oracle` (knows the right answer) | 160/200 | Ceiling of retrieval + checks. Misses only the 2 image questions |
+| `none` (refuses everything) | 20/200 | Only the unanswerable question |
 
 ## Run the tests
 
@@ -27,6 +37,8 @@ python3 -m venv .venv && .venv/bin/pip install pypdf python-docx openpyxl pytest
 .venv/bin/python -m pytest -q
 ```
 
-## Known next problem
+## Next
 
-On the sample corpus the WITHDRAWN datasheet (r1) outranks the current one (r2) for the junction-temperature question. The answer step must prefer the current revision, or the citation is wrong.
+1. The real reader: pick and load an open vision-language model on the AMD notebook (it must read the two image questions too), kept loaded between questions.
+2. Images: read them once during `--index`, so questions stay under 30 s.
+3. Dockerfile and AMD's `selfcheck.py`, then build and push from a cloud machine.

@@ -14,9 +14,11 @@ An answer-with-source engine for the AMD AI League: it reads a folder of mixed d
 | Persisted index + BM25 search | Done, tested |
 | Answer step: drops withdrawn revisions, follows ticket/error IDs to a second file, accepts a value only if it is written in a cited file, prunes citations to the chain, turns prose and crashes into refusals | Done, tested |
 | `app.py` to the AMD contract (always writes both graded keys) | Done, tested |
-| Images (read by a vision model on the GPU) | Not started |
-| The real reader: an open model kept resident on the GPU behind a unix socket | Not started |
-| Dockerfile on the mandated ROCm base, `--no-deps` installs, self-check | Not started |
+| Resident model service on a unix socket (`server.py`, `engine/server.py`, `engine/client.py`); fails fast if the model can't load | Done, tested with a stand-in model |
+| Qwen reader (the 200/200 prompt) and image transcription during `--index` | Done, tested with a stand-in model |
+| **Match 2 mode**: `--input-image` → `<stem>_output.json` `{"text": ...}` | Done, tested with a stand-in model; prompt not yet run on real plates |
+| Dockerfile (mandated base, torch pinned as a constraint, weights at a fixed revision, offline) | Written, statically checked; **not built yet** |
+| `scripts/build_and_check.sh`: build, size, real-GPU sample run, OCR smoke, AMD selfcheck | Written; needs a Docker + AMD GPU machine |
 
 ## Sample score
 
@@ -55,6 +57,6 @@ python3 -m venv .venv && .venv/bin/pip install pypdf python-docx openpyxl pytest
 
 ## Next
 
-1. Port the notebook reader into `engine/`: a resident model server on a unix socket (each question is a new process, and a 23 s load per question would break the 30 s limit), image transcription during `--index`, and the JSON prompt.
-2. Dockerfile (weights in `/models`, torch pins as constraints) and AMD's `selfcheck.py`.
-3. Build and push from a cloud machine with Docker (the notebook has none).
+1. On a Docker + AMD GPU machine (AMD Developer Cloud credit): `bash scripts/build_and_check.sh amd-league:v1`.
+2. Push to a public registry (GitHub Container Registry), and paste the reference into both lablab fields (Mini Challenge 2 and 3). Don't publish the reference anywhere else.
+3. Match 2 prompt: check it on real plate and sign images (the brief's samples) before submitting.

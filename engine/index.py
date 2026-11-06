@@ -12,7 +12,7 @@ import math
 import re
 from collections import Counter
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 from engine.parsers import parse_file
 from engine.walker import walk_corpus
@@ -42,7 +42,10 @@ def _path_words(rel: str) -> str:
     return " ".join(re.split(r"[/_.\-]", rel))
 
 
-def build_index(corpus: Path, index_dir: Optional[Path] = None) -> Dict:
+def build_index(corpus: Path, index_dir: Optional[Path] = None,
+                image_reader: Optional[Callable[[str], str]] = None) -> Dict:
+    """Parse every file once. With image_reader, each image is transcribed once and
+    its text indexed like any other chunk; a failed transcription is skipped with a reason."""
     corpus = Path(corpus)
     chunks: List[Dict] = []
     skipped: List[Dict] = []
@@ -52,6 +55,14 @@ def build_index(corpus: Path, index_dir: Optional[Path] = None) -> Dict:
         result = parse_file(corpus / rel_path)
         if result.status == "needs_vision":
             images.append(rel)
+            if image_reader is not None:
+                try:
+                    text = image_reader(str(corpus / rel_path))
+                except Exception as err:
+                    skipped.append({"file": rel, "reason": f"vision_error: {err.__class__.__name__}"})
+                    continue
+                if text.strip():
+                    chunks.append({"file": rel, "location": "image text", "text": text})
         elif result.status == "skipped":
             skipped.append({"file": rel, "reason": result.reason})
         else:

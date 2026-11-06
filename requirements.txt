@@ -1,0 +1,8 @@
+# Installed with torch pinned as a constraint (see Dockerfile). Never add torch here.
+# Versions are the ones that ran Qwen3-VL-8B on the AMD notebook on 6 Nov 2026.
+transformers==5.22.1
+accelerate==1.15.0
+huggingface_hub==2.4.0
+pypdf==6.21.4
+python-docx==1.2.0
+openpyxl==3.1.5

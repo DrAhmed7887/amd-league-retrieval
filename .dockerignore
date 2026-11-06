@@ -1,0 +1,12 @@
+.git
+.venv
+.pytest_cache
+__pycache__
+*.pyc
+.index
+output
+kit
+notes
+tests
+scripts
+README.md

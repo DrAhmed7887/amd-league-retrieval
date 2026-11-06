@@ -35,7 +35,7 @@ READER = os.environ.get("MC3_READER", "none")
 # The index pass may start while the service is still loading the model (~25 s on the
 # W7900D), so it waits longer than a question does. Both stay inside the harness budgets.
 INDEX_WAIT_SECONDS = float(os.environ.get("MODEL_INDEX_WAIT_SECONDS", "300"))
-OCR_TOKENS = 64
+OCR_TOKENS = 128  # 64 cut off a long label mid-sentence on the AMD notebook (6 Nov)
 
 
 def write_json(stem: str, payload: dict) -> None:

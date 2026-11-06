@@ -30,7 +30,9 @@ An answer-with-source engine for the AMD AI League: it reads a folder of mixed d
 | `none` (refuses everything) | 20/200 | Only the unanswerable question |
 | **Qwen3-VL-8B-Instruct** on the AMD notebook (Radeon Pro W7900D, gfx1100) | **200/200** | Notebook experiment, 6 Nov 2026: images transcribed once at index time, then the same checks. 0.5–1.7 s per question, 23 s model load, 16.6 GiB peak VRAM |
 
-The sample corpus is small; the graded one is larger and harder, so 200/200 here is a smoke test, not a forecast.
+| **Full submission path** on the AMD notebook (`server.py` + one `app.py` process per question, commit a3f3a5f) | **200/200** | 6 Nov 2026: requirements install keeps torch `2.13.0+rocm10.0.0`; model load 25.6 s; `--index` with 2 image reads 13.9 s; questions 0.6–1.8 s each; Match 2 mode 1.6–2.6 s per image; 17.5 GiB VRAM in use |
+
+The sample corpus is small; the graded one is larger and harder, so 200/200 here is a smoke test, not a forecast. Not yet tested: the built Docker image, and the Match 2 prompt on real licence plates and road signs.
 
 ## Model
 

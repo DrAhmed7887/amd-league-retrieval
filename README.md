@@ -3,7 +3,22 @@
 An answer-with-source engine for the AMD AI League: it reads a folder of mixed documents (or web pages), answers a question with the exact value only, and cites only the files the answer needed. It refuses with an empty answer when the source isn't there.
 
 - **Match 3 (RAG):** a folder of PDF, Word, Excel, CSV, logs, code and images.
-- **Match 4 (web retrieval):** the same engine over web pages. Planned.
+- **Match 4 (web retrieval):** the same engine over web pages. Built 6 Nov 2026 on an assumed contract (see below).
+
+## Match 4: web retrieval
+
+No official Match 4 brief or submission field has been published (asked in the lablab Discord since 14 Oct). This mode follows the contract other participants converged on, copied from Match 3:
+
+```bash
+python3 /app/app.py --query-id q01 --query "Who is the CEO of AMD?" [--url https://start.page]
+# -> /app/output/q01_output.json  {"answer": "Lisa Su", "citations": ["https://..."], "confidence": 0.9, "source_url": "https://..."}
+```
+
+Also accepted: `--id`, `--question`, `--website`/`--start-url`, `--question-file q.json`, and `--pages DIR` (saved pages instead of the live web). A call with `--corpus` and no `--url` is still Match 3.
+
+How it answers: with a start URL it crawls that site (best links first, same site, up to 10 pages); without one it finds pages through package registries, DuckDuckGo/Bing and Wikipedia, fetches them in parallel and looks one level deeper from the best hit. Passages are ranked by keywords (with plurals and a few synonyms) plus the opening passage of the top pages. The same check as Match 3 decides: the value must be written on a cited page, citations are pruned, otherwise the answer is empty. Fetching is limited to public addresses, http(s), 2 MB per page, and stops at 17 s; the whole question is bounded at 26 s, model call included.
+
+Live check, 6 Nov 2026 (`scripts/m4_check.py` cases, run from a Mac with a stand-in reader, not the shipped model): 8/8 correct with a cited page, slowest 16 s. **Not yet tested:** the shipped Qwen model on these questions on the AMD GPU, and whatever the real grader expects (network access at grading, URL matching, normalisation).
 
 ## Status
 

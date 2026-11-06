@@ -21,13 +21,16 @@ import argparse
 import json
 import os
 import sys
+import time
 from pathlib import Path
+from typing import Optional
 
 from engine.answer import answer_question
 from engine.client import ModelClient, ModelError
 from engine.index import build_index, load_index
 from engine.ocr import OCR_PROMPT, clean_ocr_text
-from engine.readers import TRANSCRIBE_PROMPT, TRANSCRIBE_TOKENS, get_reader
+from engine.readers import TRANSCRIBE_PROMPT, TRANSCRIBE_TOKENS, WebQwenReader, get_reader
+from engine.webanswer import TOTAL_BUDGET as WEB_TOTAL_BUDGET, answer_web
 
 OUTPUT_DIR = Path(os.environ.get("MC3_OUTPUT_DIR", "/app/output"))
 INDEX_DIR = Path(os.environ.get("MC3_INDEX_DIR", "/app/index"))
@@ -96,13 +99,45 @@ def run_ocr(image: Path) -> None:
         write_json(image.stem, {"text": text, "confidence": 0.9 if text else 0.0})
 
 
+def run_web(query_id: str, query: str, url: Optional[str], pages: Optional[Path]) -> None:
+    """Match 4: answer from the web (or a folder of saved pages), citing page URLs."""
+    start = time.monotonic()
+    write_json(query_id, {"answer": "", "citations": [], "confidence": 0.0})  # a timeout still leaves a valid file
+    answer, citations, confidence = "", [], 0.0
+    try:
+        if READER == "qwen":  # the model call gets whatever is left of the question's budget, never more
+            reader = WebQwenReader(ModelClient(deadline=start + WEB_TOTAL_BUDGET))
+        else:
+            reader = get_reader(READER)
+        answer, citations, confidence = answer_web(query, reader, url=url, corpus=pages, start=start)
+    except Exception as err:
+        print(f"web query {query_id} failed: {err.__class__.__name__}: {err}", file=sys.stderr)
+    finally:
+        payload = {"answer": answer, "citations": list(citations), "confidence": confidence}
+        if citations:
+            payload["source_url"] = citations[0]
+        write_json(query_id, payload)
+
+
+def _from_question_file(args) -> None:
+    """--question-file FILE: a JSON object with the question fields, for harnesses that pass one."""
+    data = json.loads(Path(args.question_file).read_text(encoding="utf-8"))
+    args.query_id = args.query_id or data.get("query_id") or data.get("id") or data.get("qid")
+    args.query = args.query or data.get("query") or data.get("question")
+    args.url = args.url or data.get("url") or data.get("website") or data.get("start_url")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--input-image", type=Path, help="Match 2: read the text in this image")
     ap.add_argument("--index", type=Path, help="Match 3: build the index over this corpus, then exit")
     ap.add_argument("--corpus", type=Path, help="Match 3: corpus root for a query")
-    ap.add_argument("--query-id", help="Match 3: output stem the harness assigns, e.g. query_01")
-    ap.add_argument("--query", help="Match 3: the question to answer")
+    ap.add_argument("--query-id", "--id", "--qid", dest="query_id", help="output stem the harness assigns")
+    ap.add_argument("--query", "--question", dest="query", help="the question to answer")
+    ap.add_argument("--url", "--website", "--start-url", dest="url", help="Match 4: optional start page")
+    ap.add_argument("--pages", type=Path, help="Match 4: a folder of saved pages instead of the live web")
+    # Not "--input": argparse would then stop expanding the "--input" prefix to --input-image.
+    ap.add_argument("--question-file", help="Match 4: JSON file with query_id/query/url")
     args = ap.parse_args()
 
     if args.input_image is not None:
@@ -111,10 +146,23 @@ def main() -> int:
     if args.index is not None:
         run_index(args.index)
         return 0
-    if args.corpus is None or args.query is None or not args.query_id:
-        ap.error("a query needs --corpus, --query-id and --query")
-    run_query(args.corpus, args.query_id, args.query)
-    return 0
+    if args.question_file:
+        try:
+            _from_question_file(args)
+        except Exception as err:
+            print(f"unreadable --question-file: {err}", file=sys.stderr)
+    if args.query is None or not args.query_id:
+        if args.query_id:  # still leave a valid, empty answer for the grader
+            write_json(args.query_id, {"answer": "", "citations": [], "confidence": 0.0})
+            return 0
+        ap.error("a query needs --query-id and --query")
+    if args.corpus is not None and args.url is None and os.environ.get("MATCH_MODE") != "web":
+        run_query(args.corpus, args.query_id, args.query)  # Match 3, unchanged
+        return 0
+    run_web(args.query_id, args.query, args.url, args.pages)  # Match 4
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(0)  # the answer is written; don't let slow fetch threads hold the process past 30 s
 
 
 if __name__ == "__main__":

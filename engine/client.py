@@ -22,13 +22,23 @@ def failed_marker(socket_path: str) -> str:
 
 
 class ModelClient:
-    def __init__(self, socket_path: str = DEFAULT_SOCKET, wait_seconds: Optional[float] = None):
+    def __init__(self, socket_path: str = DEFAULT_SOCKET, wait_seconds: Optional[float] = None,
+                 deadline: Optional[float] = None):
         self.socket_path = socket_path
         self.wait_seconds = float(os.environ.get("MODEL_WAIT_SECONDS", "20")) if wait_seconds is None else wait_seconds
+        self.deadline = deadline  # absolute time.monotonic(); bounds both the connect wait and the reply
+
+    def _left(self, default: float) -> float:
+        if self.deadline is None:
+            return default
+        left = self.deadline - time.monotonic()
+        if left <= 0:
+            raise ModelError("question time budget used up")
+        return min(default, left)
 
     def _connect(self) -> socket.socket:
         """Retry until the service is listening: it may still be loading the model."""
-        deadline = time.monotonic() + self.wait_seconds
+        deadline = time.monotonic() + self._left(self.wait_seconds)
         while True:
             if os.path.exists(failed_marker(self.socket_path)):
                 raise ModelError("model service failed to load; see the container log")
@@ -45,10 +55,12 @@ class ModelClient:
     def _call(self, request: dict) -> str:
         conn = self._connect()
         with conn:
-            conn.settimeout(RESPONSE_TIMEOUT)
+            conn.settimeout(self._left(RESPONSE_TIMEOUT))
             conn.sendall((json.dumps(request, ensure_ascii=False) + "\n").encode("utf-8"))
             data = b""
             while not data.endswith(b"\n"):
+                if self.deadline is not None:
+                    conn.settimeout(self._left(RESPONSE_TIMEOUT))
                 chunk = conn.recv(65536)
                 if not chunk:
                     break

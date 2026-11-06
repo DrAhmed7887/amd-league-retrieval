@@ -30,6 +30,18 @@ Question: {q}
 Excerpts:
 {ctx}"""
 
+WEB_PROMPT = """You answer a question using ONLY the numbered web page excerpts below. Do not use outside knowledge: if the excerpts do not state the answer, refuse.
+Reply with one line of JSON and nothing else: {{"answer": "...", "files": ["..."]}}
+- answer: the exact value only, copied as written on the page (a number, name, date, version, phone number, price, address). No sentence, no explanation, no units unless they are part of the value as written. For a person, give the name without titles such as Dr., Prof., Mr. or Ms.
+- files: the page URLs (the "file:" of each excerpt) you needed. List only pages that state the answer, or a page that gave an identifier the answer depended on. Never list a page you did not need.
+- If pages disagree, prefer the official or most recent page, such as the organisation's own site or the latest release.
+- If the excerpts do not contain the answer, reply {{"answer": "", "files": []}}.
+
+Question: {q}
+
+Excerpts:
+{ctx}"""
+
 REFUSAL = {"answer": "", "files": []}
 
 
@@ -72,13 +84,21 @@ class QwenReader:
         return parse_reply(raw)
 
 
+class WebQwenReader(QwenReader):
+    """Same model and parsing, with the prompt for real web pages (Match 4)."""
+
+    def read(self, question: str, context: List[Dict]) -> Dict:
+        raw = self.client.ask(WEB_PROMPT.format(q=question, ctx=format_context(context)), None, ANSWER_TOKENS)
+        return parse_reply(raw)
+
+
 def image_transcriber(client: Optional[ModelClient] = None):
     """A callable for build_index(image_reader=...) that reads each image once."""
     client = client or ModelClient()
     return lambda path: client.ask(TRANSCRIBE_PROMPT, path, TRANSCRIBE_TOKENS)
 
 
-READERS = {"none": NoneReader, "qwen": QwenReader}
+READERS = {"none": NoneReader, "qwen": QwenReader, "qwen-web": WebQwenReader}
 
 
 def get_reader(name: str):

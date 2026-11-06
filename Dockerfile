@@ -14,10 +14,18 @@ RUN pip list --format=freeze | grep -iE '^(torch|torchvision|torchaudio|triton)=
  && pip install -c /tmp/torch-pins.txt -r /app/requirements.txt \
  && python3 -c "import torch; v = torch.__version__; assert '+rocm' in v, v; print('torch', v)"
 
-# Weights ship inside the image: the graded run has no network. ~16.3 GiB.
+# Weights ship inside the image: the graded run has no network. ~16.3 GiB in 4 shards.
+# One layer per shard (each under 5 GiB) so no single layer is huge to push or pull.
 ARG MODEL_REPO=Qwen/Qwen3-VL-8B-Instruct
 ARG MODEL_REVISION=0c351dd01ed87e9c1b53cbc748cba10e6187ff3b
-RUN python3 -c "from huggingface_hub import snapshot_download; snapshot_download('${MODEL_REPO}', revision='${MODEL_REVISION}', local_dir='/models/Qwen3-VL-8B-Instruct')"
+ARG MODEL_DIR=/models/Qwen3-VL-8B-Instruct
+RUN python3 -c "from huggingface_hub import snapshot_download as d; d('${MODEL_REPO}', revision='${MODEL_REVISION}', local_dir='${MODEL_DIR}', allow_patterns=['model-00001-of-00004.safetensors'])"
+RUN python3 -c "from huggingface_hub import snapshot_download as d; d('${MODEL_REPO}', revision='${MODEL_REVISION}', local_dir='${MODEL_DIR}', allow_patterns=['model-00002-of-00004.safetensors'])"
+RUN python3 -c "from huggingface_hub import snapshot_download as d; d('${MODEL_REPO}', revision='${MODEL_REVISION}', local_dir='${MODEL_DIR}', allow_patterns=['model-00003-of-00004.safetensors'])"
+RUN python3 -c "from huggingface_hub import snapshot_download as d; d('${MODEL_REPO}', revision='${MODEL_REVISION}', local_dir='${MODEL_DIR}', allow_patterns=['model-00004-of-00004.safetensors'])"
+# Everything else (config, tokenizer, index); shards already present are skipped.
+RUN python3 -c "from huggingface_hub import snapshot_download as d; d('${MODEL_REPO}', revision='${MODEL_REVISION}', local_dir='${MODEL_DIR}', ignore_patterns=['*.safetensors'])" \
+ && python3 -c "import json, pathlib; idx = json.load(open('${MODEL_DIR}/model.safetensors.index.json')); need = set(idx['weight_map'].values()); have = {p.name for p in pathlib.Path('${MODEL_DIR}').glob('*.safetensors')}; assert need <= have, need - have; print('shards ok', sorted(have))"
 
 COPY app.py server.py /app/
 COPY engine/ /app/engine/

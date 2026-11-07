@@ -160,3 +160,20 @@ def test_wikipedia_non_article_links_are_junk():
     assert JUNK.search("https://en.wikipedia.org/wiki/Talk:Python_Software_Foundation")
     assert JUNK.search("https://en.wikipedia.org/wiki/Special:WhatLinksHere/X")
     assert not JUNK.search("https://en.wikipedia.org/wiki/Python_Software_Foundation")
+
+
+def test_honorific_is_dropped_from_a_name_answer():
+    # Qwen3-VL answered "Dr. Lisa Su" although WEB_PROMPT asks for names without titles.
+    page = FakePage("https://amd.example/lisa-su", "Dr. Lisa Su, Chair and Chief Executive Officer of AMD.")
+    sources = Sources(fetch=lambda u, d: page, crawl=lambda *a, **k: [], chunk_page=chunk,
+                      candidate_urls=lambda q, d, k=8: [page.url], load_saved_pages=lambda d: [])
+    value, cited, _ = answer_web("Who is the CEO of AMD?", Reader("Dr. Lisa Su", [page.url]), sources=sources)
+    assert value == "Lisa Su" and cited == [page.url]
+
+
+def test_honorific_strip_leaves_other_answers_alone():
+    from engine.webanswer import strip_honorific
+    assert strip_honorific("Prof. Ada Lovelace") == "Ada Lovelace"
+    assert strip_honorific("Drake") == "Drake"
+    assert strip_honorific("Dr Pepper Snapple Group") == "Dr Pepper Snapple Group"
+    assert strip_honorific("2001") == "2001"

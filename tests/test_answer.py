@@ -122,3 +122,16 @@ def test_app_writes_the_contract_file(sample_corpus, tmp_path):
     out = json.loads((tmp_path / "out" / "query_07_output.json").read_text())
     assert set(out) == {"answer", "citations", "confidence"}
     assert out["answer"] == "" and out["citations"] == []
+
+
+def test_check_accepts_a_citation_with_the_location_suffix_copied_from_the_context():
+    # Qwen3-VL on the AMD GPU (7 Nov 2026) cited "url (part 12)": the label format_context prints.
+    context = [{"file": "https://www.irs.gov/help/let-us-help-you", "location": "part 12",
+                "text": "Individuals\n800-829-1040\n7 a.m. to 7 p.m."}]
+    cited = ["https://www.irs.gov/help/let-us-help-you (part 12)"]
+    assert check_answer("800-829-1040", cited, context) == ("800-829-1040", ["https://www.irs.gov/help/let-us-help-you"])
+
+
+def test_check_still_refuses_a_suffixed_citation_of_a_file_never_retrieved():
+    context = [{"file": "a.csv", "location": "row 1", "text": "fixed_in: 4.3.2"}]
+    assert check_answer("4.3.2", ["b.csv (row 1)"], context) == ("", [])

@@ -26,6 +26,7 @@ _WITHDRAWN_NAME = re.compile(r"withdrawn|superseded|obsolete|deprecated", re.I)
 _WITHDRAWN_TEXT = re.compile(r"\bwithdrawn\b|\bsuperseded by\b|\bobsolete\b", re.I)
 _REVISION = re.compile(r"(^|_)(r|rev|v)\d+(?=_|$)", re.I)
 _IDENTIFIER = re.compile(r"\b[A-Z][A-Z0-9]*-\d{2,}[A-Z0-9]*\b|\b[A-Z]\d{3,}\b")
+_LOCATION_SUFFIX = re.compile(r"\s+\([^()]*\)\s*$")
 _PROSE_REFUSAL = re.compile(r"don'?t know|not (found|available|mentioned|stated|provided)|no answer|unknown|cannot|n/?a\b", re.I)
 
 
@@ -83,7 +84,9 @@ def check_answer(answer: str, files: List[str], context: List[Dict]) -> Tuple[st
     if not value or _PROSE_REFUSAL.search(value):
         return "", []
     retrieved = {c["file"] for c in context}
-    cited = [f for f in dict.fromkeys(files or []) if f in retrieved]
+    # Models copy the context label "file (location)"; map that back to the file it names.
+    files = [f if f in retrieved else _LOCATION_SUFFIX.sub("", f) for f in (files or [])]
+    cited = [f for f in dict.fromkeys(files) if f in retrieved]
     wanted = normalize(value)
     holders = {c["file"] for c in context if c["file"] in cited and wanted and wanted in normalize(c["text"])}
     if not holders:

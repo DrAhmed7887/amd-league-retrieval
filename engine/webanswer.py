@@ -10,6 +10,7 @@ model always has time to answer inside TOTAL_BUDGET.
 
 from __future__ import annotations
 
+import re
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -42,6 +43,15 @@ SYNONYMS = {
     "latest": "current newest release version", "born": "birth", "population": "inhabitants",
     "port": "default", "capital": "capital city",
 }
+
+
+# Titles the model keeps despite WEB_PROMPT ("Dr. Lisa Su"). Only dotted forms and "Professor",
+# so brand names like "Dr Pepper" stay intact.
+_HONORIFIC = re.compile(r"^(?:(?:Dr|Prof|Mr|Mrs|Ms|Mx)\.|Professor)\s+(?=[A-Z])")
+
+
+def strip_honorific(value: str) -> str:
+    return _HONORIFIC.sub("", value.strip())
 
 
 def expand_query(query: str) -> str:
@@ -137,7 +147,8 @@ def answer_web(query: str, reader: Reader, url: Optional[str] = None, corpus: Op
         if not context or time.monotonic() > start + TOTAL_BUDGET:
             return "", [], 0.0
         reply = reader.read(query, context)
-        value, cited = check_answer(str(reply.get("answer", "")), list(reply.get("files", [])), context)
+        answer = strip_honorific(str(reply.get("answer", "")))
+        value, cited = check_answer(answer, list(reply.get("files", [])), context)
         return value, cited, (0.9 if value else 0.0)
     except Exception as err:  # a crash must still produce a valid, empty answer
         print(f"web answer failed: {err.__class__.__name__}: {err}", file=sys.stderr)

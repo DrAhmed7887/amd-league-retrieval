@@ -18,7 +18,11 @@ Also accepted: `--id`, `--question`, `--website`/`--start-url`, `--question-file
 
 How it answers: with a start URL it crawls that site (best links first, same site, up to 10 pages); without one it finds pages through package registries, DuckDuckGo/Bing and Wikipedia, fetches them in parallel and looks one level deeper from the best hit. Passages are ranked by keywords (with plurals and a few synonyms) plus the opening passage of the top pages. The same check as Match 3 decides: the value must be written on a cited page, citations are pruned, otherwise the answer is empty. Fetching is limited to public addresses, http(s), 2 MB per page, and stops at 17 s; the whole question is bounded at 26 s, model call included.
 
-Live check, 6 Nov 2026 (`scripts/m4_check.py` cases, run from a Mac with a stand-in reader, not the shipped model): 8/8 correct with a cited page, slowest 16 s. **Not yet tested:** the shipped Qwen model on these questions on the AMD GPU, and whatever the real grader expects (network access at grading, URL matching, normalisation).
+Live check, 6 Nov 2026 (`scripts/m4_check.py` cases, run from a Mac with a stand-in reader, not the shipped model): 8/8 correct with a cited page, slowest 16 s.
+
+**Shipped model, 7 Nov 2026:** Qwen3-VL-8B-Instruct on the AMD notebook GPU (Radeon PRO W7900D) read the same 8 questions. The notebook's network is filtered (DuckDuckGo blocked, Wikipedia times out), so the pages were fetched live on a Mac and the exact passages the engine selected were replayed to the model on the GPU. First run: the model's answer was right 8/8, but only 4/8 passed the checks. Three times it cited `url (part N)` (the context label) instead of the URL, and once it kept a title ("Dr. Lisa Su") despite the prompt. Both are now fixed in code (citation labels map back to the retrieved page; leading dotted titles are dropped), and the rerun scored **8/8 with a cited page**. Model time 1.8–3.3 s per question; Mac fetch time plus model time was at most 19.2 s against the 30 s limit (fetch time on the grader's network will differ).
+
+**Not yet tested:** whatever the real grader expects (network access at grading, URL matching, normalisation), and a full end-to-end run with live fetching on an AMD GPU machine that has open network access.
 
 ## Status
 

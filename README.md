@@ -5,6 +5,17 @@ An answer-with-source engine for the AMD AI League: it reads a folder of mixed d
 - **Match 3 (RAG):** a folder of PDF, Word, Excel, CSV, logs, code and images.
 - **Match 4 (web retrieval):** the same engine over web pages. Built 6 Nov 2026 on an assumed contract (see below).
 
+## Final status (15 Nov 2026)
+
+Development is closed. Match entries closed on 14 Nov; the league ends on 1 Dec.
+
+| Entry | Image | State |
+|---|---|---|
+| Match 2 + Match 3 (team FallRx-Sentinel) | `docker.io/drzayed87/amd-league:v1` | Submitted on lablab 6 Nov. Not in the organisers' results table on 11 or 13 Nov; the image was checked on 13 Nov (public, single amd64 manifest, mandated base layers intact, about 46 GiB) and a grading question was posted in the lablab Discord. Grading result: unknown |
+| Match 4 (web retrieval) | `docker.io/drzayed87/amd-league:v2` (code 048eda8) | Built and pushed 7 Nov, never entered: no Match 4 field appeared on the form before the cutoff |
+
+The results below are our own checks, not official scores.
+
 ## Match 4: web retrieval
 
 No official Match 4 brief or submission field has been published (asked in the lablab Discord since 14 Oct). This mode follows the contract other participants converged on, copied from Match 3:

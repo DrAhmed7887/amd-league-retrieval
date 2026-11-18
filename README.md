@@ -12,7 +12,7 @@ Development is closed. Match entries closed on 14 Nov; the league ends on 1 Dec.
 | Entry | Image | State |
 |---|---|---|
 | Match 2 + Match 3 (team FallRx-Sentinel) | `docker.io/drzayed87/amd-league:v1` | Submitted on lablab 6 Nov. Not in the organisers' results table on 11 or 13 Nov; the image was checked on 13 Nov (public, single amd64 manifest, mandated base layers intact, about 46 GiB) and a grading question was posted in the lablab Discord. Grading result: unknown |
-| Match 4 (web retrieval) | `docker.io/drzayed87/amd-league:v2` (code 048eda8) | Built and pushed 7 Nov, never entered: no Match 4 field appeared on the form before the cutoff |
+| Match 4 (web retrieval) | `docker.io/drzayed87/amd-league:v2` (code 048eda8) | Built by CI run 42416527423 from 048eda8 and pushed 7 Nov 2026 21:47 UTC (digest `sha256:9877f95770653c1633e308319718ca97135829ee4e36535f3b2bb529d1e1c2c9`, single amd64 manifest, checked on Docker Hub 18 Nov), never entered: no Match 4 field appeared on the form before the cutoff |
 
 The results below are our own checks, not official scores.
 

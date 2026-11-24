@@ -94,3 +94,7 @@ python3 -m venv .venv && .venv/bin/pip install pypdf python-docx openpyxl pytest
 ## Build
 
 `.github/workflows/build-image.yml` builds the image on a free GitHub runner and runs every check that needs no GPU. With `push=true` it pushes to Docker Hub (ghcr.io caps layers at 10 GB; the mandated base has an 18.6 GB layer). On a Docker + AMD GPU machine, `bash scripts/build_and_check.sh <tag>` adds the real-GPU run.
+
+## License
+
+Code: [MIT](LICENSE). Model weights are not included; Qwen3-VL-8B-Instruct is published under Apache-2.0.

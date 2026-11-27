@@ -1,100 +1,86 @@
 # amd-league-retrieval
 
-An answer-with-source engine for the AMD AI League: it reads a folder of mixed documents (or web pages), answers a question with the exact value only, and cites only the files the answer needed. It refuses with an empty answer when the source isn't there.
+An answer-with-source engine for the AMD AI League. It reads a folder of mixed
+documents or web pages, returns only the exact value requested, cites only the
+sources that support the answer, and refuses with an empty answer when the
+source is missing.
 
-- **Match 3 (RAG):** a folder of PDF, Word, Excel, CSV, logs, code and images.
-- **Match 4 (web retrieval):** the same engine over web pages. Built 6 Nov 2026 on an assumed contract (see below).
+- **Match 2 (OCR):** `--input-image` text extraction via Qwen3-VL-8B-Instruct.
+- **Match 3 (RAG):** `--index` and `--corpus` retrieval over PDF, Word, Excel,
+  CSV, logs, code, and images.
+- **Match 4 (Web retrieval):** live crawl, search, and saved-page retrieval on
+  the assumed Match 3 contract with expanded CLI/JSON compatibility.
 
-## Final status (15 Nov 2026)
+## League standing (November 27, 2026)
 
-Development is closed. Match entries closed on 14 Nov; the league ends on 1 Dec.
+The AMD and lablab AI Academy League ("One League. Four matches.") runs through
+**December 1, 2026, 20:00 CET**.
 
-| Entry | Image | State |
+| Entry | Image | Verified status |
 |---|---|---|
-| Match 2 + Match 3 (team FallRx-Sentinel) | `docker.io/drzayed87/amd-league:v1` | Submitted on lablab 6 Nov. Not in the organisers' results table on 11 or 13 Nov; the image was checked on 13 Nov (public, single amd64 manifest, mandated base layers intact, about 46 GiB) and a grading question was posted in the lablab Discord. Grading result: unknown |
-| Match 4 (web retrieval) | `docker.io/drzayed87/amd-league:v2` (code 048eda8) | Built by CI run 42416527423 from 048eda8 and pushed 7 Nov 2026 21:47 UTC (digest `sha256:9877f95770653c1633e308319718ca97135829ee4e36535f3b2bb529d1e1c2c9`, single amd64 manifest, checked on Docker Hub 18 Nov), never entered: no Match 4 field appeared on the form before the cutoff |
-
-The results below are our own checks, not official scores.
+| Match 2 + Match 3 (`FallRx-Sentinel`) | `docker.io/drzayed87/amd-league:v1` | Officially graded on lablab: **200/200 (10/10)** on Match 2 and **180/200 (9/10)** on Match 3 (`380` pts, Rank **#10 / 86** as of November 27, 2026). |
+| Match 4 (`Intelligent Web Information Retrieval`, Final Match) | `docker.io/drzayed87/amd-league:v2` | Rebuilt from `main` via `.github/workflows/build-image.yml` (`tag=v2`, superseding the November 7 `048eda8` build `sha256:9877f957...`) with defensive CLI/JSON handling; staged for `mini_challenge_4_image`. |
 
 ## Match 4: web retrieval
 
-No official Match 4 brief or submission field has been published (asked in the lablab Discord since 14 Oct). This mode follows the contract other participants converged on, copied from Match 3:
+No official Match 4 requirements document has been published by the organizers.
+`app.py` preserves the Match 3 contract while also accepting wide Match 4
+invocation variants (`parse_known_args`, silent `stdout`, atomic 3-key output):
 
 ```bash
-python3 /app/app.py --query-id q01 --query "Who is the CEO of AMD?" [--url https://start.page]
-# -> /app/output/q01_output.json  {"answer": "Lisa Su", "citations": ["https://..."], "confidence": 0.9, "source_url": "https://..."}
+python3 /app/app.py --query-id find_01 --query "Who is the CEO of AMD?" [--url https://start.page]
+# -> /app/output/find_01_output.json  {"answer": "Lisa Su", "citations": ["https://..."], "confidence": 0.9}
 ```
 
-Also accepted: `--id`, `--question`, `--website`/`--start-url`, `--question-file q.json`, and `--pages DIR` (saved pages instead of the live web). A call with `--corpus` and no `--url` is still Match 3.
+Accepted CLI flags include `--query-id`/`--id`/`--qid`/`--find-id`/`--find`/`--task-id`,
+`--query`/`--question`/`--task`/`--prompt`/`-q`, `--url`/`--website`/`--start-url`,
+`--pages`, `--question-file`/`--input`/`--input-file`, `--input-dir`,
+`--output-dir`, `--output`/`-o`, and bare `--index`. Calls with `--corpus` and
+no `--url` (unless `MATCH_MODE=web`) still run Match 3.
 
-How it answers: with a start URL it crawls that site (best links first, same site, up to 10 pages); without one it finds pages through package registries, DuckDuckGo/Bing and Wikipedia, fetches them in parallel and looks one level deeper from the best hit. Passages are ranked by keywords (with plurals and a few synonyms) plus the opening passage of the top pages. The same check as Match 3 decides: the value must be written on a cited page, citations are pruned, otherwise the answer is empty. Fetching is limited to public addresses, http(s), 2 MB per page, and stops at 17 s; the whole question is bounded at 26 s, model call included.
+With a start URL, the engine crawls same-site links up to 10 pages. Without one,
+it queries package registries, DuckDuckGo/Bing, and Wikipedia, fetches top hits
+in parallel, and ranks passages by keywords plus lead passages. Fetching caps at
+2 MB per page and 17 s; each question is capped at 26 s total including model
+inference.
 
-Live check, 6 Nov 2026 (`scripts/m4_check.py` cases, run from a Mac with a stand-in reader, not the shipped model): 8/8 correct with a cited page, slowest 16 s.
+## Known limits and checks
 
-**Shipped model, 7 Nov 2026:** Qwen3-VL-8B-Instruct on the AMD notebook GPU (Radeon PRO W7900D) read the same 8 questions. The notebook's network is filtered (DuckDuckGo blocked, Wikipedia times out), so the pages were fetched live on a Mac and the exact passages the engine selected were replayed to the model on the GPU. First run: the model's answer was right 8/8, but only 4/8 passed the checks. Three times it cited `url (part N)` (the context label) instead of the URL, and once it kept a title ("Dr. Lisa Su") despite the prompt. Both are now fixed in code (citation labels map back to the retrieved page; leading dotted titles are dropped), and the rerun scored **8/8 with a cited page**. Model time 1.8–3.3 s per question; Mac fetch time plus model time was at most 19.2 s against the 30 s limit (fetch time on the grader's network will differ).
+- **Match 4 spec unknown:** No official Match 4 brief or sample corpus exists;
+  every public `mini-challenge-4` entry on lablab currently shows `0/10` or
+  `error`/`failed` (November 27, 2026).
+- **Self-check on AMD GPU:** Our November 7 check scored **8/8** on
+  `scripts/m4_check.py` (pages fetched on Mac, replayed to Qwen3-VL-8B-Instruct
+  on Radeon PRO W7900D, 1.8–3.3 s model time), not an official grader score.
+- **Grader network access:** Outbound web access inside the Match 4 grading
+  container is untested; if `--network none` or blocked search engines apply,
+  live search returns empty refusals.
+- **Local Docker check:** `kit/selfcheck.py` requires Docker (absent on the
+  build Mac) and runs in GitHub Actions without a GPU; the pure-Python `pytest`
+  suite passes locally (kit-dependent tests require `kit/` unpacked).
+- **Match 3 sample check:** `scripts/score_sample.py` scored `200/200` on the
+  AMD notebook (`160/200` with `oracle` text-only reader, November 6, 2026).
 
-**Not yet tested:** whatever the real grader expects (network access at grading, URL matching, normalisation), and a full end-to-end run with live fetching on an AMD GPU machine that has open network access.
+## Model and container
 
-## Status
-
-| Part | State |
-|---|---|
-| Corpus walk that survives unreadable, encrypted, unknown-type files and empty folders | Done, tested |
-| Parsers: PDF, DOCX (with tables), XLSX (all sheets), CSV, text, logs, code | Done, tested |
-| Persisted index + BM25 search | Done, tested |
-| Answer step: drops withdrawn revisions, follows ticket/error IDs to a second file, accepts a value only if it is written in a cited file, prunes citations to the chain, turns prose and crashes into refusals | Done, tested |
-| `app.py` to the AMD contract (always writes both graded keys) | Done, tested |
-| Resident model service on a unix socket (`server.py`, `engine/server.py`, `engine/client.py`); fails fast if the model can't load | Done, tested with a stand-in model |
-| Qwen reader (the 200/200 prompt) and image transcription during `--index` | Done, tested with a stand-in model |
-| **Match 2 mode**: `--input-image` → `<stem>_output.json` `{"text": ...}` | Done; 10/10 brief samples and 50/50 harder variants on the AMD GPU (`scripts/mc2_check.py`) |
-| Dockerfile (mandated base, torch pinned as a constraint, weights at a fixed revision in one layer per shard, offline) | Built and pushed by `.github/workflows/build-image.yml`: 45.5 GiB, base layers intact, AMD self-check passes (no GPU in CI) |
-| `scripts/build_and_check.sh`: build, size, real-GPU sample run, OCR smoke, AMD selfcheck | For a Docker + AMD GPU machine |
-
-## Sample score
-
-`scripts/score_sample.py` scores the kit's 10 questions exactly as the grader does (6 Nov 2026):
-
-| Reader | Score | Meaning |
-|---|---|---|
-| `oracle` (knows the right answer) | 160/200 | Ceiling of retrieval + checks. Misses only the 2 image questions |
-| `none` (refuses everything) | 20/200 | Only the unanswerable question |
-| **Qwen3-VL-8B-Instruct** on the AMD notebook (Radeon Pro W7900D, gfx1100) | **200/200** | Notebook experiment, 6 Nov 2026: images transcribed once at index time, then the same checks. 0.5–1.7 s per question, 23 s model load, 16.6 GiB peak VRAM |
-
-| **Full submission path** on the AMD notebook (`server.py` + one `app.py` process per question, commit a3f3a5f) | **200/200** | 6 Nov 2026: requirements install keeps torch `2.13.0+rocm10.0.0`; model load 25.6 s; `--index` with 2 image reads 13.9 s; questions 0.6–1.8 s each; Match 2 mode 1.6–2.6 s per image; 17.5 GiB VRAM in use |
-
-The sample corpus is small; the graded one is larger and harder, so 200/200 here is a smoke test, not a forecast.
-
-**Match 2** (6 Nov 2026, same notebook GPU, `scripts/mc2_check.py`): the brief's 10 sample images read 10/10 (200/200), and 50 harder variants (5x size, tilt, blur, dark with noise, tiny low-quality JPEG) read 50/50. Model load 24.6 s; slowest image 8.3 s (the first, warm-up), most 0.1–1.5 s.
-
-Not yet tested: the pushed image itself on an AMD GPU (CI has no GPU; the same code ran on the notebook GPU).
-
-## Model
-
-`Qwen/Qwen3-VL-8B-Instruct` (Apache-2.0, 16.3 GiB bf16). Image budget: 29.2 GiB base + 16.3 GiB weights ≈ 46 of 60 GiB.
-
-Notebook setup that keeps the AMD torch build (pin it, then let pip resolve the rest):
-
-```bash
-pip list --format=freeze | grep -iE '^(torch|torchvision|torchaudio|triton)==' > torch-pins.txt
-pip install -c torch-pins.txt transformers accelerate huggingface_hub pypdf python-docx openpyxl
-```
-
-`--no-deps` alone breaks huggingface_hub 2.x (it needs httpx2 and httpcore2).
+- **Model:** `Qwen/Qwen3-VL-8B-Instruct` (Apache-2.0, 16.3 GiB bf16, loaded once
+  by `server.py` and served over a unix socket).
+- **Base image:** `rocm/pytorch:rocm10.0_ubuntu26.04_py3.14_pytorch_release_2.13.0`
+  (~45.5 GiB total; base layers unchanged; `torch` pinned via constraints).
+- **Build:** `.github/workflows/build-image.yml` builds on Ubuntu runners and
+  pushes to Docker Hub (GHCR caps layers at 10 GB; the base has an 18.6 GB
+  layer). On a Docker + AMD GPU machine, run `bash scripts/build_and_check.sh <tag>`.
 
 ## Run the tests
 
-The AMD starter kit is kept out of git. Put it at `kit/` and run its setup step once:
+The AMD starter kit stays out of git. Place it at `kit/` to run kit-dependent
+checks, or run the pure-Python suite directly:
 
 ```bash
-unzip mc3-starter-kit.zip && mv mc3-starter-kit kit && sh kit/setup.sh
-python3 -m venv .venv && .venv/bin/pip install pypdf python-docx openpyxl pytest
-.venv/bin/python -m pytest -q
+/usr/bin/python3 -m pytest -q
 ```
-
-## Build
-
-`.github/workflows/build-image.yml` builds the image on a free GitHub runner and runs every check that needs no GPU. With `push=true` it pushes to Docker Hub (ghcr.io caps layers at 10 GB; the mandated base has an 18.6 GB layer). On a Docker + AMD GPU machine, `bash scripts/build_and_check.sh <tag>` adds the real-GPU run.
 
 ## License
 
-Code: [MIT](LICENSE). Model weights are not included; Qwen3-VL-8B-Instruct is published under Apache-2.0.
+Code: [MIT](LICENSE). Model weights (`Qwen/Qwen3-VL-8B-Instruct`) are published
+under Apache-2.0.

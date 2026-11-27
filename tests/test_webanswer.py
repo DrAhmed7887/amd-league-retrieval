@@ -136,6 +136,70 @@ def test_app_input_file_fills_the_question(tmp_path):
     assert (tmp_path / "q02_output.json").exists()
 
 
+def test_app_match4_cli_aliases_unknown_flags_and_strict_keys(tmp_path):
+    """Unknown flags must not exit 2; --find-id/--task/--output-dir/--input work with silent stdout."""
+    out_dir = tmp_path / "out"
+    empty_pages = tmp_path / "pages"
+    empty_pages.mkdir()
+    env = {"MC3_OUTPUT_DIR": str(tmp_path), "MC3_READER": "none", "PATH": "/usr/bin:/bin",
+           "PYTHONPATH": str(ROOT)}
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "app.py"), "--find-id", "find_01", "--task", "Who is CEO?",
+         "--pages", str(empty_pages), "--output-dir", str(out_dir), "--unknown-flag", "ignored"],
+        env=env, capture_output=True, text=True, timeout=60,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout == ""
+    out = json.loads((out_dir / "find_01_output.json").read_text())
+    assert set(out) == {"answer", "citations", "confidence"}
+    assert out["answer"] == "" and out["citations"] == []
+
+
+def test_app_input_flag_and_explicit_output_and_batch_dir(tmp_path):
+    """--input does not collide with --input-image; batch JSONL and --input-dir write all items."""
+    (tmp_path / "pages").mkdir()
+    single = tmp_path / "find_02.json"
+    single.write_text(json.dumps({"find_id": "find_02", "prompt": "x?"}))
+    explicit_out = tmp_path / "custom" / "find_02.json"
+    env = {"MC3_OUTPUT_DIR": str(tmp_path / "out"), "MC3_READER": "none", "PATH": "/usr/bin:/bin",
+           "PYTHONPATH": str(ROOT)}
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "app.py"), "--input", str(single), "--pages", str(tmp_path / "pages"),
+         "--output", str(explicit_out)],
+        env=env, capture_output=True, text=True, timeout=60,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout == ""
+    assert set(json.loads(explicit_out.read_text())) == {"answer", "citations", "confidence"}
+
+    in_dir = tmp_path / "batch"
+    in_dir.mkdir()
+    (in_dir / "tasks.jsonl").write_text(
+        json.dumps({"task_id": "find_03", "question": "q3?"}) + "\n"
+        + json.dumps({"id": "find_04", "query": "q4?"}) + "\n"
+    )
+    proc2 = subprocess.run(
+        [sys.executable, str(ROOT / "app.py"), "--input-dir", str(in_dir), "--pages", str(tmp_path / "pages")],
+        env=env, capture_output=True, text=True, timeout=60,
+    )
+    assert proc2.returncode == 0, proc2.stderr
+    assert proc2.stdout == ""
+    assert (tmp_path / "out" / "find_03_output.json").exists()
+    assert (tmp_path / "out" / "find_04_output.json").exists()
+
+
+def test_app_bare_index_and_missing_args_never_crash(tmp_path):
+    env = {"MC3_INDEX_DIR": str(tmp_path / "idx"), "MC3_OUTPUT_DIR": str(tmp_path / "out"),
+           "MC3_READER": "none", "PATH": "/usr/bin:/bin", "PYTHONPATH": str(ROOT)}
+    p_idx = subprocess.run([sys.executable, str(ROOT / "app.py"), "--index"],
+                           env=env, capture_output=True, text=True, timeout=60)
+    assert p_idx.returncode == 0, p_idx.stderr
+    p_empty = subprocess.run([sys.executable, str(ROOT / "app.py"), "--find-id", "find_05"],
+                             env=env, capture_output=True, text=True, timeout=60)
+    assert p_empty.returncode == 0, p_empty.stderr
+    assert set(json.loads((tmp_path / "out" / "find_05_output.json").read_text())) == {"answer", "citations", "confidence"}
+
+
 def test_expand_query_adds_plurals_and_synonyms():
     from engine.webanswer import expand_query
     words = expand_query("What is the phone number for individual tax help?").split()
